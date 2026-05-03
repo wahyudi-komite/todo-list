@@ -37,6 +37,10 @@ class TaskflowApp {
         // Setup all event listeners first
         this.setupEventListeners();
 
+        // Set default tanggal ke hari ini
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById('task-date').value = today;
+
         // Show setup modal if no config
         if (!this.supabase) {
             document.getElementById('setup-modal').classList.add('active');
@@ -207,7 +211,7 @@ class TaskflowApp {
             this.tasks = (data || []).map(row => ({
                 id: row.id,
                 title: row.title,
-                completed: row.completed,
+                status: row.status || (row.completed ? 'completed' : 'active'),
                 priority: row.priority,
                 category: row.category,
                 dueDate: row.due_date,
@@ -234,6 +238,7 @@ class TaskflowApp {
             username: this.username,
             title,
             completed: false,
+            status: 'active',
             priority: document.getElementById('task-priority').value,
             category: document.getElementById('task-category').value,
             due_date: document.getElementById('task-date').value || null,
@@ -254,7 +259,7 @@ class TaskflowApp {
             this.tasks.unshift({
                 id: row.id,
                 title: row.title,
-                completed: row.completed,
+                status: row.status || 'active',
                 priority: row.priority,
                 category: row.category,
                 dueDate: row.due_date,
@@ -266,7 +271,7 @@ class TaskflowApp {
             this.updateStats();
             this.renderTasks();
             input.value = '';
-            document.getElementById('task-date').value = '';
+            document.getElementById('task-date').value = new Date().toISOString().split('T')[0];
             input.focus();
             this.showToast('Tugas berhasil ditambahkan!', 'success');
         } catch (err) {
@@ -275,24 +280,26 @@ class TaskflowApp {
         }
     }
 
-    async toggleTask(id) {
+    async cycleStatus(id) {
         const task = this.tasks.find(t => t.id === id);
         if (!task) return;
 
-        const newVal = !task.completed;
+        const cycle = { active: 'progress', progress: 'completed', completed: 'active' };
+        const newStatus = cycle[task.status] || 'active';
+        const newCompleted = newStatus === 'completed';
         try {
             const { error } = await this.supabase
                 .from('todos')
-                .update({ completed: newVal, updated_at: new Date().toISOString() })
+                .update({ status: newStatus, completed: newCompleted, updated_at: new Date().toISOString() })
                 .eq('id', id);
 
             if (error) throw error;
-            task.completed = newVal;
+            task.status = newStatus;
             task.updatedAt = new Date().toISOString();
             this.updateStats();
             this.renderTasks();
         } catch (err) {
-            this.showToast('Gagal mengupdate tugas', 'error');
+            this.showToast('Gagal mengupdate status', 'error');
         }
     }
 
@@ -325,6 +332,7 @@ class TaskflowApp {
         if (!task) return;
         this.editingId = id;
         document.getElementById('edit-title').value = task.title;
+        document.getElementById('edit-status').value = task.status;
         document.getElementById('edit-priority').value = task.priority;
         document.getElementById('edit-category').value = task.category;
         document.getElementById('edit-date').value = task.dueDate || '';
@@ -338,6 +346,8 @@ class TaskflowApp {
 
         const updates = {
             title: document.getElementById('edit-title').value.trim(),
+            status: document.getElementById('edit-status').value,
+            completed: document.getElementById('edit-status').value === 'completed',
             priority: document.getElementById('edit-priority').value,
             category: document.getElementById('edit-category').value,
             due_date: document.getElementById('edit-date').value || null,
@@ -354,6 +364,7 @@ class TaskflowApp {
             if (error) throw error;
 
             task.title = updates.title;
+            task.status = updates.status;
             task.priority = updates.priority;
             task.category = updates.category;
             task.dueDate = updates.due_date;
@@ -375,7 +386,7 @@ class TaskflowApp {
     }
 
     async clearCompleted() {
-        const count = this.tasks.filter(t => t.completed).length;
+        const count = this.tasks.filter(t => t.status === 'completed').length;
         if (count === 0) return;
         if (!confirm(`Hapus ${count} tugas yang sudah selesai?`)) return;
 
@@ -384,10 +395,10 @@ class TaskflowApp {
                 .from('todos')
                 .delete()
                 .eq('username', this.username)
-                .eq('completed', true);
+                .eq('status', 'completed');
 
             if (error) throw error;
-            this.tasks = this.tasks.filter(t => !t.completed);
+            this.tasks = this.tasks.filter(t => t.status !== 'completed');
             this.updateStats();
             this.renderTasks();
             this.showToast(`${count} tugas dihapus`, 'info');
@@ -400,8 +411,10 @@ class TaskflowApp {
     getFilteredTasks() {
         return this.tasks.filter(task => {
             const matchFilter = this.currentFilter === 'all' ||
-                (this.currentFilter === 'active' && !task.completed) ||
-                (this.currentFilter === 'completed' && task.completed);
+                (this.currentFilter === 'incomplete' && (task.status === 'active' || task.status === 'progress')) ||
+                (this.currentFilter === 'active' && task.status === 'active') ||
+                (this.currentFilter === 'progress' && task.status === 'progress') ||
+                (this.currentFilter === 'completed' && task.status === 'completed');
             const matchSearch = !this.searchQuery ||
                 task.title.toLowerCase().includes(this.searchQuery) ||
                 (task.notes && task.notes.toLowerCase().includes(this.searchQuery));
@@ -414,7 +427,7 @@ class TaskflowApp {
         const empty = document.getElementById('empty-state');
         const filtered = this.getFilteredTasks();
         const btnClear = document.getElementById('btn-clear-completed');
-        const hasCompleted = this.tasks.some(t => t.completed);
+        const hasCompleted = this.tasks.some(t => t.status === 'completed');
 
         btnClear.classList.toggle('visible', hasCompleted);
 
@@ -429,18 +442,25 @@ class TaskflowApp {
             personal: '👤', work: '💼', study: '📚',
             health: '💪', finance: '💰', other: '📌'
         };
+        const statusLabels = {
+            active: '📝 Aktif',
+            progress: '🔄 Proses',
+            completed: '✅ Selesai'
+        };
+        const statusIcons = { active: '', progress: '◐', completed: '✓' };
 
         list.innerHTML = filtered.map(task => {
-            const isOverdue = task.dueDate && !task.completed && new Date(task.dueDate) < new Date();
+            const isOverdue = task.dueDate && task.status !== 'completed' && new Date(task.dueDate) < new Date();
             const dateStr = task.dueDate ? this.formatDate(task.dueDate) : '';
             return `
-                <li class="task-item ${task.completed ? 'completed' : ''}" data-id="${task.id}">
-                    <button class="task-checkbox" onclick="app.toggleTask(${task.id})" aria-label="Toggle">
-                        ${task.completed ? '✓' : ''}
+                <li class="task-item ${task.status}" data-id="${task.id}">
+                    <button class="task-checkbox" onclick="app.cycleStatus(${task.id})" aria-label="Ubah status" title="Klik: ${task.status === 'active' ? 'Mulai Proses' : task.status === 'progress' ? 'Tandai Selesai' : 'Reset ke Aktif'}">
+                        ${statusIcons[task.status] || ''}
                     </button>
                     <div class="task-info">
                         <div class="task-title">${this.escapeHtml(task.title)}</div>
                         <div class="task-meta">
+                            <span class="task-tag tag-status-${task.status}">${statusLabels[task.status]}</span>
                             <span class="task-tag tag-priority-${task.priority}">${task.priority === 'high' ? 'Tinggi' : task.priority === 'medium' ? 'Sedang' : 'Rendah'}</span>
                             <span class="task-tag tag-category">${categoryLabels[task.category] || '📌'} ${task.category}</span>
                             ${dateStr ? `<span class="task-tag ${isOverdue ? 'tag-overdue' : 'tag-date'}">${isOverdue ? '⚠️ ' : '📅 '}${dateStr}</span>` : ''}
@@ -458,19 +478,14 @@ class TaskflowApp {
     // ===== STATS =====
     updateStats() {
         const total = this.tasks.length;
-        const completed = this.tasks.filter(t => t.completed).length;
-        const active = total - completed;
-        const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
+        const active = this.tasks.filter(t => t.status === 'active').length;
+        const progress = this.tasks.filter(t => t.status === 'progress').length;
+        const completed = this.tasks.filter(t => t.status === 'completed').length;
 
         document.getElementById('stat-total').textContent = total;
         document.getElementById('stat-active').textContent = active;
+        document.getElementById('stat-progress').textContent = progress;
         document.getElementById('stat-completed').textContent = completed;
-        document.getElementById('progress-text').textContent = pct + '%';
-
-        const circle = document.getElementById('progress-circle');
-        const circumference = 2 * Math.PI * 18;
-        circle.style.strokeDasharray = circumference;
-        circle.style.strokeDashoffset = circumference - (pct / 100) * circumference;
     }
 
     // ===== EXPORT / IMPORT =====
