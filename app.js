@@ -1,4 +1,7 @@
 // ===== TASKFLOW — Todo List with Supabase Database =====
+// Konfigurasi Supabase - Ganti dengan kredensial Anda
+const SUPABASE_URL = 'https://vquvvbjrnwwruhnxbpdn.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZxdXZ2Ympybnd3cnVobnhicGRuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc4MTkzNjEsImV4cCI6MjA5MzM5NTM2MX0.z-PblW64skuUgAIfXh-IppGBkV2BK5GbeOOA9P2nk8w';
 
 class TaskflowApp {
     constructor() {
@@ -11,15 +14,34 @@ class TaskflowApp {
         this.init();
     }
 
-    // ===== INIT =====
     init() {
-        // Check if Supabase config exists
-        const config = this.getConfig();
-        if (!config) {
-            this.showSetupModal();
+        // Try hardcoded config first, then localStorage
+        let config = null;
+        if (SUPABASE_URL && SUPABASE_ANON_KEY && SUPABASE_URL !== 'YOUR_SUPABASE_URL') {
+            config = { url: SUPABASE_URL, key: SUPABASE_ANON_KEY };
+        } else {
+            try {
+                const saved = localStorage.getItem('taskflow_config');
+                config = saved ? JSON.parse(saved) : null;
+            } catch { }
+        }
+
+        if (config) {
+            try {
+                this.supabase = window.supabase.createClient(config.url, config.key);
+            } catch (err) {
+                console.error('Supabase init error:', err);
+            }
+        }
+
+        // Setup all event listeners first
+        this.setupEventListeners();
+
+        // Show setup modal if no config
+        if (!this.supabase) {
+            document.getElementById('setup-modal').classList.add('active');
             return;
         }
-        this.initSupabase(config);
 
         // Check if user is logged in
         const savedUser = localStorage.getItem('taskflow_user');
@@ -27,7 +49,9 @@ class TaskflowApp {
             this.username = savedUser;
             this.showApp();
         }
+    }
 
+    setupEventListeners() {
         // Setup modal
         document.getElementById('setup-form').addEventListener('submit', (e) => {
             e.preventDefault();
@@ -46,7 +70,7 @@ class TaskflowApp {
         // Logout
         document.getElementById('btn-logout').addEventListener('click', () => this.logout());
 
-        // Form
+        // Add task form
         document.getElementById('add-task-form').addEventListener('submit', (e) => {
             e.preventDefault();
             this.addTask();
@@ -89,51 +113,68 @@ class TaskflowApp {
 
         // Keyboard
         document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') this.closeModal();
+            if (e.key === 'Escape') {
+                this.closeModal();
+                document.getElementById('setup-modal').classList.remove('active');
+            }
         });
     }
 
     // ===== SUPABASE CONFIG =====
-    getConfig() {
-        try {
-            const data = localStorage.getItem('taskflow_config');
-            return data ? JSON.parse(data) : null;
-        } catch { return null; }
-    }
-
-    initSupabase(config) {
-        this.supabase = window.supabase.createClient(config.url, config.key);
-    }
-
-    showSetupModal() {
-        document.getElementById('setup-modal').classList.add('active');
-    }
-
     saveConfig() {
         const url = document.getElementById('setup-url').value.trim();
         const key = document.getElementById('setup-key').value.trim();
         if (!url || !key) return;
-        localStorage.setItem('taskflow_config', JSON.stringify({ url, key }));
-        this.initSupabase({ url, key });
-        document.getElementById('setup-modal').classList.remove('active');
-        this.showToast('Konfigurasi berhasil disimpan!', 'success');
+
+        try {
+            this.supabase = window.supabase.createClient(url, key);
+            localStorage.setItem('taskflow_config', JSON.stringify({ url, key }));
+            document.getElementById('setup-modal').classList.remove('active');
+            this.showToast('Konfigurasi berhasil disimpan!', 'success');
+        } catch (err) {
+            this.showToast('Konfigurasi tidak valid: ' + err.message, 'error');
+        }
     }
 
     // ===== AUTH (Simple Username) =====
     async login() {
         const input = document.getElementById('login-username');
+        const btn = document.getElementById('btn-login');
         const username = input.value.trim().toLowerCase();
-        if (!username || username.length < 3) return;
-
-        if (!this.supabase) {
-            this.showToast('Supabase belum dikonfigurasi!', 'error');
-            this.showSetupModal();
+        if (!username || username.length < 3) {
+            this.showToast('Username minimal 3 karakter', 'error');
             return;
         }
 
-        this.username = username;
-        localStorage.setItem('taskflow_user', username);
-        this.showApp();
+        if (!this.supabase) {
+            this.showToast('Database belum dikonfigurasi!', 'error');
+            document.getElementById('setup-modal').classList.add('active');
+            return;
+        }
+
+        btn.disabled = true;
+        btn.textContent = 'Memuat...';
+
+        try {
+            // Test connection by trying to read
+            const { error } = await this.supabase
+                .from('todos')
+                .select('id')
+                .eq('username', username)
+                .limit(1);
+
+            if (error) throw error;
+
+            this.username = username;
+            localStorage.setItem('taskflow_user', username);
+            this.showApp();
+        } catch (err) {
+            console.error('Login error:', err);
+            this.showToast('Gagal terhubung ke database: ' + (err.message || 'Cek konfigurasi Supabase'), 'error');
+        }
+
+        btn.disabled = false;
+        btn.textContent = 'Masuk';
     }
 
     logout() {
@@ -141,12 +182,11 @@ class TaskflowApp {
         this.username = '';
         this.tasks = [];
         document.getElementById('app-container').style.display = 'none';
-        document.getElementById('login-screen').classList.remove('hidden');
         document.getElementById('login-screen').style.display = '';
+        document.getElementById('login-screen').classList.remove('hidden');
     }
 
     async showApp() {
-        document.getElementById('login-screen').classList.add('hidden');
         document.getElementById('login-screen').style.display = 'none';
         document.getElementById('app-container').style.display = '';
         document.getElementById('user-badge').textContent = '👤 ' + this.username;
@@ -440,7 +480,7 @@ class TaskflowApp {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `taskflow_${this.username}_${new Date().toISOString().slice(0,10)}.json`;
+        a.download = `taskflow_${this.username}_${new Date().toISOString().slice(0, 10)}.json`;
         a.click();
         URL.revokeObjectURL(url);
         this.showToast('Data berhasil di-export!', 'success');
@@ -485,7 +525,7 @@ class TaskflowApp {
     // ===== UTILS =====
     formatDate(dateStr) {
         const d = new Date(dateStr);
-        const months = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
         return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
     }
 
