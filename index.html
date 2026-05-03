@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Taskflow - Todo List modern dan gratis">
+    <title>Taskflow — Smart Todo List</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="bg-gradient"></div>
+    <div class="bg-orbs"><div class="orb orb-1"></div><div class="orb orb-2"></div><div class="orb orb-3"></div></div>
+    <div class="app-container">
+        <header class="app-header" id="app-header">
+            <div class="header-content">
+                <div class="logo-section">
+                    <div class="logo-icon">✅</div>
+                    <h1 class="app-title">Taskflow</h1>
+                </div>
+                <div class="header-actions">
+                    <button class="btn-icon" id="btn-export" title="Export JSON">⬇️</button>
+                    <button class="btn-icon" id="btn-import" title="Import JSON">⬆️</button>
+                    <input type="file" id="import-file" accept=".json" hidden>
+                </div>
+            </div>
+        </header>
+        <section class="stats-bar" id="stats-bar">
+            <div class="stat-card"><span class="stat-number" id="stat-total">0</span><span class="stat-label">Total</span></div>
+            <div class="stat-card"><span class="stat-number" id="stat-active">0</span><span class="stat-label">Aktif</span></div>
+            <div class="stat-card"><span class="stat-number" id="stat-completed">0</span><span class="stat-label">Selesai</span></div>
+            <div class="stat-card">
+                <div class="progress-ring-container">
+                    <svg class="progress-ring" width="44" height="44">
+                        <circle class="progress-ring-bg" cx="22" cy="22" r="18"/>
+                        <circle class="progress-ring-fill" cx="22" cy="22" r="18" id="progress-circle"/>
+                    </svg>
+                    <span class="progress-text" id="progress-text">0%</span>
+                </div>
+            </div>
+        </section>
+        <section class="add-task-section">
+            <form class="add-task-form" id="add-task-form">
+                <div class="input-row">
+                    <input type="text" id="task-input" class="main-input" placeholder="Apa yang ingin Anda kerjakan?" autocomplete="off" required>
+                </div>
+                <div class="input-row secondary-row">
+                    <select id="task-priority"><option value="low">🟢 Rendah</option><option value="medium" selected>🟡 Sedang</option><option value="high">🔴 Tinggi</option></select>
+                    <select id="task-category"><option value="personal">👤 Personal</option><option value="work">💼 Kerja</option><option value="study">📚 Belajar</option><option value="health">💪 Kesehatan</option><option value="finance">💰 Keuangan</option><option value="other">📌 Lainnya</option></select>
+                    <input type="date" id="task-date">
+                    <button type="submit" class="btn-add" id="btn-add-task">+ Tambah</button>
+                </div>
+            </form>
+        </section>
+        <section class="filter-section">
+            <input type="text" id="search-input" class="search-input" placeholder="🔍 Cari tugas..." autocomplete="off">
+            <div class="filter-tabs" id="filter-tabs">
+                <button class="filter-tab active" data-filter="all">Semua</button>
+                <button class="filter-tab" data-filter="active">Aktif</button>
+                <button class="filter-tab" data-filter="completed">Selesai</button>
+            </div>
+        </section>
+        <section class="task-list-section">
+            <ul class="task-list" id="task-list"></ul>
+            <div class="empty-state" id="empty-state">
+                <p class="empty-title">📋 Belum ada tugas</p>
+                <p class="empty-subtitle">Tambahkan tugas pertama Anda di atas!</p>
+            </div>
+        </section>
+        <section class="bulk-actions" id="bulk-actions">
+            <button class="btn-bulk" id="btn-clear-completed">🗑️ Hapus Selesai</button>
+        </section>
+    </div>
+    <div class="modal-overlay" id="edit-modal">
+        <div class="modal">
+            <div class="modal-header"><h2>Edit Tugas</h2><button class="btn-modal-close" id="btn-modal-close">&times;</button></div>
+            <form class="modal-body" id="edit-form">
+                <div class="form-group"><label for="edit-title">Judul</label><input type="text" id="edit-title" required></div>
+                <div class="form-row">
+                    <div class="form-group"><label for="edit-priority">Prioritas</label><select id="edit-priority"><option value="low">🟢 Rendah</option><option value="medium">🟡 Sedang</option><option value="high">🔴 Tinggi</option></select></div>
+                    <div class="form-group"><label for="edit-category">Kategori</label><select id="edit-category"><option value="personal">👤 Personal</option><option value="work">💼 Kerja</option><option value="study">📚 Belajar</option><option value="health">💪 Kesehatan</option><option value="finance">💰 Keuangan</option><option value="other">📌 Lainnya</option></select></div>
+                </div>
+                <div class="form-group"><label for="edit-date">Tenggat</label><input type="date" id="edit-date"></div>
+                <div class="form-group"><label for="edit-notes">Catatan</label><textarea id="edit-notes" rows="3" placeholder="Catatan tambahan..."></textarea></div>
+                <div class="modal-actions"><button type="button" class="btn-secondary" id="btn-cancel-edit">Batal</button><button type="submit" class="btn-primary" id="btn-save-edit">Simpan</button></div>
+            </form>
+        </div>
+    </div>
+    <div class="toast-container" id="toast-container"></div>
+    <script src="app.js"></script>
+</body>
+</html>
