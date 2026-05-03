@@ -1,63 +1,104 @@
 # ✅ Taskflow — Smart Todo List
 
-Aplikasi Todo List modern dengan desain premium, fitur lengkap, dan **100% gratis** tanpa backend.
-
-## 🌐 Demo Online
-
-Deploy ke GitHub Pages: `Settings → Pages → Source: main branch → / (root)`
+Aplikasi Todo List modern dengan **database cloud gratis** (Supabase). Data tersinkronisasi di semua perangkat!
 
 ## ✨ Fitur
 
-- ✅ **CRUD Lengkap** — Tambah, edit, hapus, dan tandai selesai
-- 🔍 **Pencarian** — Cari tugas secara real-time
-- 🏷️ **Prioritas & Kategori** — Rendah/Sedang/Tinggi, Personal/Kerja/Belajar/dll
-- 📅 **Tenggat Waktu** — Set deadline dengan indikator overdue
-- 📊 **Dashboard Statistik** — Progress ring & counter
-- 💾 **Export/Import JSON** — Backup & restore data
-- 🌙 **Dark Mode** — Desain gelap premium
-- 📱 **Responsive** — Berjalan di semua perangkat
-- ⚡ **Tanpa Backend** — Data disimpan di localStorage (JSON)
+- ✅ CRUD Lengkap — Tambah, edit, hapus, tandai selesai
+- 🔄 **Sinkronisasi lintas perangkat** — Buka di browser manapun, data sama
+- 🔍 Pencarian & Filter real-time
+- 🏷️ Prioritas & Kategori
+- 📅 Tenggat waktu + indikator overdue
+- 📊 Dashboard statistik
+- 💾 Export/Import JSON
+- 🌙 Dark mode premium
+- 📱 Responsive
 
-## 🗄️ Database
+## 🗄️ Setup Database (Supabase — GRATIS)
 
-Menggunakan **localStorage** sebagai database JSON yang gratis:
-- Data tersimpan di browser secara permanen
-- Format JSON — mudah di-export/import
-- Tidak perlu server atau database eksternal
-- Cocok untuk hosting statis (GitHub Pages)
+### Langkah 1: Buat Akun Supabase
 
-## 🚀 Cara Deploy ke GitHub Pages
+1. Buka **https://supabase.com** → Klik **"Start your project"**
+2. Login dengan GitHub
+3. Klik **"New Project"**
+4. Isi nama project (misal: `taskflow`), set password, pilih region `Southeast Asia`
+5. Klik **"Create new project"** → Tunggu selesai
 
-1. **Buat repository baru** di GitHub
-2. **Push kode ini** ke repository:
-   ```bash
-   git init
-   git add .
-   git commit -m "Initial commit"
-   git branch -M main
-   git remote add origin https://github.com/USERNAME/REPO.git
-   git push -u origin main
-   ```
-3. **Aktifkan GitHub Pages**:
-   - Buka Settings → Pages
-   - Source: Deploy from a branch
-   - Branch: `main` / `/ (root)`
-   - Klik Save
-4. **Selesai!** Akses di `https://USERNAME.github.io/REPO`
+### Langkah 2: Buat Tabel `todos`
+
+1. Di dashboard Supabase, buka **SQL Editor** (menu kiri)
+2. Klik **"New query"**
+3. Paste SQL ini lalu klik **"Run"**:
+
+```sql
+CREATE TABLE todos (
+    id BIGSERIAL PRIMARY KEY,
+    username TEXT NOT NULL,
+    title TEXT NOT NULL,
+    completed BOOLEAN DEFAULT FALSE,
+    priority TEXT DEFAULT 'medium',
+    category TEXT DEFAULT 'personal',
+    due_date DATE,
+    notes TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Index untuk query berdasarkan username
+CREATE INDEX idx_todos_username ON todos(username);
+
+-- Aktifkan Row Level Security
+ALTER TABLE todos ENABLE ROW LEVEL SECURITY;
+
+-- Policy: Semua orang bisa CRUD (menggunakan anon key)
+CREATE POLICY "Allow all operations" ON todos
+    FOR ALL
+    USING (true)
+    WITH CHECK (true);
+```
+
+### Langkah 3: Ambil URL dan Key
+
+1. Buka **Settings** → **API** (di sidebar kiri)
+2. Catat:
+   - **Project URL** — `https://xxxxxxx.supabase.co`
+   - **anon public key** — `eyJhbGciOiJIUzI1NiIs...`
+
+### Langkah 4: Konfigurasi di Aplikasi
+
+1. Buka aplikasi Taskflow
+2. Akan muncul modal **"Setup Supabase"**
+3. Masukkan **URL** dan **Anon Key**
+4. Klik **Simpan**
+5. Masukkan username → Mulai menggunakan!
+
+> 💡 **Gunakan username yang sama** di semua perangkat untuk sinkronisasi data.
+
+## 🚀 Deploy ke GitHub Pages
+
+```bash
+git add .
+git commit -m "Add Supabase database"
+git push origin main
+```
+
+Buka: Settings → Pages → Source: `main` → Save
+
+Akses di: `https://wahyudi-komite.github.io/todo-list`
 
 ## 📁 Struktur File
 
 ```
 todo-list/
-├── index.html   — Halaman utama
-├── style.css    — Styling (dark theme, glassmorphism)
-├── app.js       — Logika aplikasi & database
+├── index.html   — Halaman utama + login
+├── style.css    — Styling premium
+├── app.js       — Logika + Supabase integration
 └── README.md    — Dokumentasi
 ```
 
 ## 🛠️ Teknologi
 
 - HTML5 + CSS3 + Vanilla JavaScript
-- localStorage (JSON database)
+- **Supabase** (PostgreSQL database — free tier)
 - Google Fonts (Inter)
-- Zero dependencies
+- Zero npm dependencies

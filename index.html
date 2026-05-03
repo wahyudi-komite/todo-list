@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Taskflow - Todo List modern dan gratis">
+    <meta name="description" content="Taskflow - Todo List modern dengan database cloud gratis">
     <title>Taskflow — Smart Todo List</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -13,21 +13,39 @@
 <body>
     <div class="bg-gradient"></div>
     <div class="bg-orbs"><div class="orb orb-1"></div><div class="orb orb-2"></div><div class="orb orb-3"></div></div>
-    <div class="app-container">
-        <header class="app-header" id="app-header">
+
+    <!-- LOGIN SCREEN -->
+    <div class="login-screen" id="login-screen">
+        <div class="login-card">
+            <div class="login-logo">✅</div>
+            <h1 class="login-title">Taskflow</h1>
+            <p class="login-subtitle">Masukkan username Anda untuk mengakses tugas dari perangkat manapun</p>
+            <form id="login-form">
+                <input type="text" id="login-username" placeholder="Username Anda..." autocomplete="off" required minlength="3" maxlength="30">
+                <button type="submit" class="btn-login" id="btn-login">Masuk</button>
+            </form>
+            <p class="login-hint">💡 Gunakan username yang sama di semua perangkat untuk sinkronisasi data</p>
+        </div>
+    </div>
+
+    <!-- MAIN APP -->
+    <div class="app-container" id="app-container" style="display:none;">
+        <header class="app-header">
             <div class="header-content">
                 <div class="logo-section">
                     <div class="logo-icon">✅</div>
                     <h1 class="app-title">Taskflow</h1>
                 </div>
                 <div class="header-actions">
+                    <span class="user-badge" id="user-badge"></span>
                     <button class="btn-icon" id="btn-export" title="Export JSON">⬇️</button>
                     <button class="btn-icon" id="btn-import" title="Import JSON">⬆️</button>
                     <input type="file" id="import-file" accept=".json" hidden>
+                    <button class="btn-icon btn-logout" id="btn-logout" title="Logout">🚪</button>
                 </div>
             </div>
         </header>
-        <section class="stats-bar" id="stats-bar">
+        <section class="stats-bar">
             <div class="stat-card"><span class="stat-number" id="stat-total">0</span><span class="stat-label">Total</span></div>
             <div class="stat-card"><span class="stat-number" id="stat-active">0</span><span class="stat-label">Aktif</span></div>
             <div class="stat-card"><span class="stat-number" id="stat-completed">0</span><span class="stat-label">Selesai</span></div>
@@ -63,16 +81,22 @@
             </div>
         </section>
         <section class="task-list-section">
+            <div class="loading-spinner" id="loading-spinner">
+                <div class="spinner"></div>
+                <p>Memuat tugas...</p>
+            </div>
             <ul class="task-list" id="task-list"></ul>
             <div class="empty-state" id="empty-state">
                 <p class="empty-title">📋 Belum ada tugas</p>
                 <p class="empty-subtitle">Tambahkan tugas pertama Anda di atas!</p>
             </div>
         </section>
-        <section class="bulk-actions" id="bulk-actions">
+        <section class="bulk-actions">
             <button class="btn-bulk" id="btn-clear-completed">🗑️ Hapus Selesai</button>
         </section>
     </div>
+
+    <!-- EDIT MODAL -->
     <div class="modal-overlay" id="edit-modal">
         <div class="modal">
             <div class="modal-header"><h2>Edit Tugas</h2><button class="btn-modal-close" id="btn-modal-close">&times;</button></div>
@@ -88,7 +112,24 @@
             </form>
         </div>
     </div>
+
+    <!-- SETUP MODAL -->
+    <div class="modal-overlay" id="setup-modal">
+        <div class="modal">
+            <div class="modal-header"><h2>⚙️ Setup Supabase</h2><button class="btn-modal-close" id="btn-setup-close">&times;</button></div>
+            <div class="modal-body">
+                <p style="color:var(--text-secondary);font-size:0.85rem;margin-bottom:16px;">Masukkan konfigurasi Supabase Anda. Lihat README untuk panduan lengkap.</p>
+                <form id="setup-form">
+                    <div class="form-group"><label for="setup-url">Supabase URL</label><input type="url" id="setup-url" placeholder="https://xxxxx.supabase.co" required></div>
+                    <div class="form-group"><label for="setup-key">Anon Key</label><input type="text" id="setup-key" placeholder="eyJhbGciOiJIUzI1NiIs..." required></div>
+                    <div class="modal-actions"><button type="submit" class="btn-primary">💾 Simpan</button></div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <div class="toast-container" id="toast-container"></div>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="app.js"></script>
 </body>
 </html>
