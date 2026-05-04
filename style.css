@@ -735,6 +735,12 @@ body {
     opacity: 1;
 }
 
+.sortable-ghost {
+    opacity: 0.4;
+    background: var(--bg-card-hover);
+    border: 1px dashed var(--accent);
+}
+
 .btn-task {
     width: 32px;
     height: 32px;

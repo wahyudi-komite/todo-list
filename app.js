@@ -729,6 +729,7 @@ class TaskflowApp {
             return `
                 <li class="task-item ${task.status}" data-id="${task.id}" style="flex-wrap: wrap;">
                     <div style="display: flex; width: 100%; gap: 12px; align-items: center;">
+                        <div class="drag-handle" style="cursor: grab; color: var(--text-muted); font-size: 1.2rem; padding-right: 4px; user-select: none;" title="Drag untuk mengubah urutan">⋮⋮</div>
                         <button class="task-checkbox" onclick="app.cycleStatus(${task.id})" aria-label="Ubah status" title="Klik: ${task.status === 'active' ? 'Mulai Proses' : task.status === 'progress' ? 'Tandai Selesai' : 'Reset ke Aktif'}">
                             ${statusIcons[task.status] || ''}
                         </button>
@@ -751,6 +752,56 @@ class TaskflowApp {
                 </li>
             `;
         }).join('');
+
+        if (this.sortableInstance) {
+            this.sortableInstance.destroy();
+        }
+        
+        // Cek jika Sortable tersedia
+        if (typeof Sortable !== 'undefined') {
+            this.sortableInstance = new Sortable(list, {
+                handle: '.drag-handle',
+                animation: 150,
+                ghostClass: 'sortable-ghost',
+                onEnd: (evt) => {
+                    const oldIndex = evt.oldIndex;
+                    const newIndex = evt.newIndex;
+                    if (newIndex === oldIndex) return;
+
+                    const movedTask = filtered[oldIndex];
+                    let prevTask = null;
+                    let nextTask = null;
+
+                    if (newIndex > oldIndex) {
+                        prevTask = filtered[newIndex];
+                        nextTask = filtered[newIndex + 1] || null;
+                    } else {
+                        prevTask = filtered[newIndex - 1] || null;
+                        nextTask = filtered[newIndex];
+                    }
+
+                    let newTime;
+                    if (!prevTask && nextTask) {
+                        newTime = new Date(new Date(nextTask.createdAt).getTime() + 60000).toISOString();
+                    } else if (prevTask && !nextTask) {
+                        newTime = new Date(new Date(prevTask.createdAt).getTime() - 60000).toISOString();
+                    } else if (prevTask && nextTask) {
+                        const prevTime = new Date(prevTask.createdAt).getTime();
+                        const nextTime = new Date(nextTask.createdAt).getTime();
+                        newTime = new Date((prevTime + nextTime) / 2).toISOString();
+                    } else {
+                        return;
+                    }
+
+                    const taskRef = this.tasks.find(t => t.id === movedTask.id);
+                    if (taskRef) taskRef.createdAt = newTime;
+
+                    this.tasks.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+                    this.supabase.from('todos').update({ created_at: newTime }).eq('id', movedTask.id).then();
+                    this.renderTasks();
+                }
+            });
+        }
     }
 
     // ===== STATS =====
