@@ -7,7 +7,7 @@ class TaskflowApp {
     constructor() {
         this.supabase = null;
         this.tasks = [];
-        this.currentFilter = 'all';
+        this.currentFilter = 'incomplete';
         this.searchQuery = '';
         this.editingId = null;
         this.username = '';
