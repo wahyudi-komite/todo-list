@@ -9,6 +9,7 @@ class TaskflowApp {
         this.tasks = [];
         this.currentFilter = 'incomplete';
         this.searchQuery = '';
+        this.filterDate = '';
         this.editingId = null;
         this.username = '';
         this.init();
@@ -134,12 +135,31 @@ class TaskflowApp {
             this.renderTasks();
         });
 
+        // Filter Date
+        document.getElementById('filter-date').addEventListener('change', (e) => {
+            this.filterDate = e.target.value;
+            if (this.filterDate && this.currentFilter !== 'completed' && this.currentFilter !== 'all') {
+                this.currentFilter = 'completed';
+                document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+                const compTab = document.querySelector('.filter-tab[data-filter="completed"]');
+                if (compTab) compTab.classList.add('active');
+            }
+            this.renderTasks();
+        });
+
         // Filter tabs
         document.getElementById('filter-tabs').addEventListener('click', (e) => {
             if (e.target.classList.contains('filter-tab')) {
                 document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
                 e.target.classList.add('active');
                 this.currentFilter = e.target.dataset.filter;
+                
+                // Clear date filter if switching to non-completed tabs
+                if (this.currentFilter !== 'completed' && this.currentFilter !== 'all') {
+                    this.filterDate = '';
+                    document.getElementById('filter-date').value = '';
+                }
+                
                 this.renderTasks();
             }
         });
@@ -682,10 +702,29 @@ class TaskflowApp {
                 (this.currentFilter === 'active' && task.status === 'active') ||
                 (this.currentFilter === 'progress' && task.status === 'progress') ||
                 (this.currentFilter === 'completed' && task.status === 'completed');
+            
             const matchSearch = !this.searchQuery ||
                 task.title.toLowerCase().includes(this.searchQuery) ||
                 (task.notes && task.notes.toLowerCase().includes(this.searchQuery));
-            return matchFilter && matchSearch;
+                
+            let matchDate = true;
+            if (this.filterDate) {
+                if (task.status === 'completed') {
+                    const parsed = this.parseNotes(task.notes);
+                    if (parsed.completedAt) {
+                        const compDate = new Date(parsed.completedAt).toISOString().split('T')[0];
+                        matchDate = compDate === this.filterDate;
+                    } else {
+                        // For backwards compatibility, fallback to updatedAt or dueDate
+                        const fallbackDate = (task.updatedAt || task.dueDate || '').split('T')[0];
+                        matchDate = fallbackDate === this.filterDate;
+                    }
+                } else {
+                    matchDate = false;
+                }
+            }
+            
+            return matchFilter && matchSearch && matchDate;
         });
     }
 
