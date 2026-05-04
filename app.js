@@ -15,6 +15,8 @@ class TaskflowApp {
     }
 
     init() {
+        this.initTheme();
+
         // Try hardcoded config first, then localStorage
         let config = null;
         if (SUPABASE_URL && SUPABASE_ANON_KEY && SUPABASE_URL !== 'YOUR_SUPABASE_URL') {
@@ -64,6 +66,52 @@ class TaskflowApp {
         document.getElementById('btn-setup-close').addEventListener('click', () => {
             document.getElementById('setup-modal').classList.remove('active');
         });
+
+        // Theme
+        document.getElementById('btn-theme').addEventListener('click', () => this.toggleTheme());
+
+        // Users
+        document.getElementById('btn-users').addEventListener('click', () => this.openUsersModal());
+        document.getElementById('btn-users-close').addEventListener('click', () => {
+            document.getElementById('users-modal').classList.remove('active');
+        });
+
+        // Subtasks UI
+        const hasSubtasksToggle = document.getElementById('has-subtasks');
+        if (hasSubtasksToggle) {
+            hasSubtasksToggle.addEventListener('change', (e) => {
+                document.getElementById('subtasks-container').style.display = e.target.checked ? 'block' : 'none';
+            });
+        }
+        
+        document.getElementById('btn-add-subtask').addEventListener('click', () => {
+            const list = document.getElementById('subtasks-list');
+            list.insertAdjacentHTML('beforeend', `
+                <div class="subtask-input-wrapper" style="display: flex; gap: 8px;">
+                    <input type="text" class="subtask-input main-input" placeholder="Nama sub-task..." style="padding: 8px 12px; font-size: 0.85rem;">
+                    <button type="button" class="btn-icon btn-remove-subtask" onclick="this.parentElement.remove()" style="width: 34px; height: 34px; flex-shrink: 0; color: var(--danger);">&times;</button>
+                </div>
+            `);
+        });
+
+        document.getElementById('btn-edit-add-subtask').addEventListener('click', () => {
+            const list = document.getElementById('edit-subtasks-list');
+            list.insertAdjacentHTML('beforeend', `
+                <div class="subtask-input-wrapper" style="display: flex; gap: 8px; align-items: center;">
+                    <input type="checkbox" class="edit-subtask-check" style="cursor: pointer; width: 16px; height: 16px;">
+                    <input type="text" class="edit-subtask-input main-input" placeholder="Nama sub-task..." style="padding: 6px 10px; font-size: 0.85rem;">
+                    <button type="button" class="btn-icon btn-remove-subtask" onclick="this.parentElement.remove()" style="width: 30px; height: 30px; flex-shrink: 0; color: var(--danger);">&times;</button>
+                </div>
+            `);
+        });
+
+        const editHasSubtasks = document.getElementById('edit-has-subtasks');
+        if (editHasSubtasks) {
+            editHasSubtasks.addEventListener('change', (e) => {
+                document.getElementById('edit-notes-group').style.display = e.target.checked ? 'none' : 'block';
+                document.getElementById('edit-subtasks-group').style.display = e.target.checked ? 'block' : 'none';
+            });
+        }
 
         // Login
         document.getElementById('login-form').addEventListener('submit', (e) => {
@@ -122,6 +170,74 @@ class TaskflowApp {
                 document.getElementById('setup-modal').classList.remove('active');
             }
         });
+    }
+
+    // ===== THEME =====
+    initTheme() {
+        const savedTheme = localStorage.getItem('taskflow_theme') || 'dark';
+        if (savedTheme === 'light') {
+            document.body.classList.add('light-mode');
+            const btn = document.getElementById('btn-theme');
+            if(btn) btn.textContent = '🌙';
+        } else {
+            const btn = document.getElementById('btn-theme');
+            if(btn) btn.textContent = '☀️';
+        }
+    }
+
+    toggleTheme() {
+        const isLight = document.body.classList.toggle('light-mode');
+        const btn = document.getElementById('btn-theme');
+        if(btn) btn.textContent = isLight ? '🌙' : '☀️';
+        localStorage.setItem('taskflow_theme', isLight ? 'light' : 'dark');
+    }
+
+    // ===== USERS =====
+    async openUsersModal() {
+        document.getElementById('users-modal').classList.add('active');
+        document.getElementById('users-spinner').style.display = 'block';
+        document.getElementById('users-list').innerHTML = '';
+
+        try {
+            const { data, error } = await this.supabase
+                .from('todos')
+                .select('username, status, completed');
+
+            if (error) throw error;
+
+            const userMap = {};
+            (data || []).forEach(row => {
+                const u = row.username;
+                if (!u) return;
+                if (!userMap[u]) userMap[u] = { active: 0, completed: 0, total: 0 };
+                userMap[u].total++;
+                if (row.status === 'completed' || row.completed) userMap[u].completed++;
+                else userMap[u].active++;
+            });
+
+            const users = Object.keys(userMap).map(u => ({ username: u, ...userMap[u] }));
+            users.sort((a, b) => b.total - a.total);
+
+            const listHtml = users.map(u => `
+                <li class="task-item" style="justify-content: space-between;">
+                    <div class="task-info">
+                        <div class="task-title" style="font-weight:700;">👤 ${this.escapeHtml(u.username)}</div>
+                        <div class="task-meta" style="margin-top: 6px;">
+                            <span class="task-tag tag-category">Total: ${u.total}</span>
+                            <span class="task-tag tag-status-active">Aktif: ${u.active}</span>
+                            <span class="task-tag tag-status-completed">Selesai: ${u.completed}</span>
+                        </div>
+                    </div>
+                </li>
+            `).join('');
+
+            document.getElementById('users-list').innerHTML = users.length ? listHtml : '<p style="text-align:center; color:var(--text-muted); margin-top:20px;">Belum ada user</p>';
+        } catch (err) {
+            console.error('Fetch users error:', err);
+            this.showToast('Gagal memuat data user', 'error');
+        }
+
+        document.getElementById('users-spinner').style.display = 'none';
     }
 
     // ===== SUPABASE CONFIG =====
@@ -233,6 +349,15 @@ class TaskflowApp {
         const title = input.value.trim();
         if (!title) return;
 
+        let notesValue = '';
+        const hasSubtasksToggle = document.getElementById('has-subtasks');
+        if (hasSubtasksToggle && hasSubtasksToggle.checked) {
+            const subInputs = Array.from(document.querySelectorAll('.subtask-input')).map(i => i.value.trim()).filter(v => v);
+            if (subInputs.length > 0) {
+                notesValue = JSON.stringify({ type: 'subtasks', items: subInputs.map(t => ({ title: t, completed: false })) });
+            }
+        }
+
         const now = new Date().toISOString();
         const taskData = {
             username: this.username,
@@ -242,7 +367,7 @@ class TaskflowApp {
             priority: document.getElementById('task-priority').value,
             category: document.getElementById('task-category').value,
             due_date: document.getElementById('task-date').value || null,
-            notes: '',
+            notes: notesValue,
             created_at: now,
             updated_at: now
         };
@@ -272,6 +397,16 @@ class TaskflowApp {
             this.renderTasks();
             input.value = '';
             document.getElementById('task-date').value = new Date().toISOString().split('T')[0];
+            const hasSubtasksToggle = document.getElementById('has-subtasks');
+            if (hasSubtasksToggle) {
+                hasSubtasksToggle.checked = false;
+                document.getElementById('subtasks-container').style.display = 'none';
+                document.getElementById('subtasks-list').innerHTML = `
+                    <div class="subtask-input-wrapper" style="display: flex; gap: 8px;">
+                        <input type="text" class="subtask-input main-input" placeholder="Nama sub-task..." style="padding: 8px 12px; font-size: 0.85rem;">
+                        <button type="button" class="btn-icon btn-remove-subtask" onclick="this.parentElement.remove()" style="width: 34px; height: 34px; flex-shrink: 0; color: var(--danger);">&times;</button>
+                    </div>`;
+            }
             input.focus();
             this.showToast('Tugas berhasil ditambahkan!', 'success');
         } catch (err) {
@@ -300,6 +435,30 @@ class TaskflowApp {
             this.renderTasks();
         } catch (err) {
             this.showToast('Gagal mengupdate status', 'error');
+        }
+    }
+
+    async toggleSubtask(taskId, subtaskIdx) {
+        const task = this.tasks.find(t => t.id === taskId);
+        if (!task) return;
+        try {
+            const parsed = JSON.parse(task.notes);
+            parsed.items[subtaskIdx].completed = !parsed.items[subtaskIdx].completed;
+            const newNotes = JSON.stringify(parsed);
+            
+            const { error } = await this.supabase
+                .from('todos')
+                .update({ notes: newNotes, updated_at: new Date().toISOString() })
+                .eq('id', taskId);
+
+            if (error) throw error;
+            
+            task.notes = newNotes;
+            task.updatedAt = new Date().toISOString();
+            this.renderTasks();
+        } catch (err) {
+            console.error(err);
+            this.showToast('Gagal mengubah status sub-task', 'error');
         }
     }
 
@@ -336,13 +495,67 @@ class TaskflowApp {
         document.getElementById('edit-priority').value = task.priority;
         document.getElementById('edit-category').value = task.category;
         document.getElementById('edit-date').value = task.dueDate || '';
-        document.getElementById('edit-notes').value = task.notes || '';
+        
+        let isSubtask = false;
+        let parsedItems = [];
+        try {
+            if (task.notes && task.notes.startsWith('{"type":"subtasks"')) {
+                const parsed = JSON.parse(task.notes);
+                isSubtask = true;
+                parsedItems = parsed.items;
+            }
+        } catch(e) {}
+
+        const toggle = document.getElementById('edit-has-subtasks');
+        if (toggle) {
+            toggle.checked = isSubtask;
+            document.getElementById('edit-notes-group').style.display = isSubtask ? 'none' : 'block';
+            document.getElementById('edit-subtasks-group').style.display = isSubtask ? 'block' : 'none';
+        }
+
+        if (isSubtask) {
+            const list = document.getElementById('edit-subtasks-list');
+            list.innerHTML = parsedItems.map(s => `
+                <div class="subtask-input-wrapper" style="display: flex; gap: 8px; align-items: center;">
+                    <input type="checkbox" class="edit-subtask-check" ${s.completed ? 'checked' : ''} style="cursor: pointer; width: 16px; height: 16px;">
+                    <input type="text" class="edit-subtask-input main-input" value="${this.escapeHtml(s.title).replace(/"/g, '&quot;')}" style="padding: 6px 10px; font-size: 0.85rem;">
+                    <button type="button" class="btn-icon btn-remove-subtask" onclick="this.parentElement.remove()" style="width: 30px; height: 30px; flex-shrink: 0; color: var(--danger);">&times;</button>
+                </div>
+            `).join('');
+            document.getElementById('edit-notes').value = '';
+        } else {
+            document.getElementById('edit-notes').value = task.notes || '';
+            document.getElementById('edit-subtasks-list').innerHTML = `
+                <div class="subtask-input-wrapper" style="display: flex; gap: 8px; align-items: center;">
+                    <input type="checkbox" class="edit-subtask-check" style="cursor: pointer; width: 16px; height: 16px;">
+                    <input type="text" class="edit-subtask-input main-input" placeholder="Nama sub-task..." style="padding: 6px 10px; font-size: 0.85rem;">
+                    <button type="button" class="btn-icon btn-remove-subtask" onclick="this.parentElement.remove()" style="width: 30px; height: 30px; flex-shrink: 0; color: var(--danger);">&times;</button>
+                </div>`;
+        }
+
         document.getElementById('edit-modal').classList.add('active');
     }
 
     async saveEdit() {
         const task = this.tasks.find(t => t.id === this.editingId);
         if (!task) return;
+
+        let notesValue = '';
+        const toggle = document.getElementById('edit-has-subtasks');
+        if (toggle && toggle.checked) {
+            const wrappers = document.querySelectorAll('#edit-subtasks-list .subtask-input-wrapper');
+            const items = [];
+            wrappers.forEach(w => {
+                const title = w.querySelector('.edit-subtask-input').value.trim();
+                const completed = w.querySelector('.edit-subtask-check').checked;
+                if (title) items.push({ title, completed });
+            });
+            if (items.length > 0) {
+                notesValue = JSON.stringify({ type: 'subtasks', items });
+            }
+        } else {
+            notesValue = document.getElementById('edit-notes').value.trim();
+        }
 
         const updates = {
             title: document.getElementById('edit-title').value.trim(),
@@ -351,7 +564,7 @@ class TaskflowApp {
             priority: document.getElementById('edit-priority').value,
             category: document.getElementById('edit-category').value,
             due_date: document.getElementById('edit-date').value || null,
-            notes: document.getElementById('edit-notes').value.trim(),
+            notes: notesValue,
             updated_at: new Date().toISOString()
         };
 
@@ -452,24 +665,54 @@ class TaskflowApp {
         list.innerHTML = filtered.map(task => {
             const isOverdue = task.dueDate && task.status !== 'completed' && new Date(task.dueDate) < new Date();
             const dateStr = task.dueDate ? this.formatDate(task.dueDate) : '';
+            
+            let subtasksHtml = '';
+            try {
+                if (task.notes && task.notes.startsWith('{"type":"subtasks"')) {
+                    const parsed = JSON.parse(task.notes);
+                    const subtasks = parsed.items;
+                    if (subtasks.length > 0) {
+                        const completedCount = subtasks.filter(s => s.completed).length;
+                        subtasksHtml = `
+                            <div class="subtasks-wrapper" style="margin-top: 12px; width: 100%; border-top: 1px dashed var(--border); padding-top: 10px;">
+                                <div class="subtasks-progress" style="font-size: 0.7rem; color: var(--text-muted); margin-bottom: 6px;">
+                                    Progress: ${completedCount}/${subtasks.length} Selesai
+                                </div>
+                                <ul style="list-style: none; padding-left: 0; margin: 0; display: flex; flex-direction: column; gap: 6px;">
+                                    ${subtasks.map((s, idx) => `
+                                        <li style="display: flex; align-items: center; gap: 8px;">
+                                            <input type="checkbox" ${s.completed ? 'checked' : ''} onclick="app.toggleSubtask(${task.id}, ${idx})" style="cursor: pointer; width: 16px; height: 16px; flex-shrink:0;">
+                                            <span style="font-size: 0.85rem; color: var(--text-secondary); ${s.completed ? 'text-decoration: line-through; opacity: 0.6;' : ''}">${this.escapeHtml(s.title)}</span>
+                                        </li>
+                                    `).join('')}
+                                </ul>
+                            </div>
+                        `;
+                    }
+                }
+            } catch(e) {}
+
             return `
-                <li class="task-item ${task.status}" data-id="${task.id}">
-                    <button class="task-checkbox" onclick="app.cycleStatus(${task.id})" aria-label="Ubah status" title="Klik: ${task.status === 'active' ? 'Mulai Proses' : task.status === 'progress' ? 'Tandai Selesai' : 'Reset ke Aktif'}">
-                        ${statusIcons[task.status] || ''}
-                    </button>
-                    <div class="task-info">
-                        <div class="task-title">${this.escapeHtml(task.title)}</div>
-                        <div class="task-meta">
-                            <span class="task-tag tag-status-${task.status}">${statusLabels[task.status]}</span>
-                            <span class="task-tag tag-priority-${task.priority}">${task.priority === 'high' ? 'Tinggi' : task.priority === 'medium' ? 'Sedang' : 'Rendah'}</span>
-                            <span class="task-tag tag-category">${categoryLabels[task.category] || '📌'} ${task.category}</span>
-                            ${dateStr ? `<span class="task-tag ${isOverdue ? 'tag-overdue' : 'tag-date'}">${isOverdue ? '⚠️ ' : '📅 '}${dateStr}</span>` : ''}
+                <li class="task-item ${task.status}" data-id="${task.id}" style="flex-wrap: wrap;">
+                    <div style="display: flex; width: 100%; gap: 12px; align-items: center;">
+                        <button class="task-checkbox" onclick="app.cycleStatus(${task.id})" aria-label="Ubah status" title="Klik: ${task.status === 'active' ? 'Mulai Proses' : task.status === 'progress' ? 'Tandai Selesai' : 'Reset ke Aktif'}">
+                            ${statusIcons[task.status] || ''}
+                        </button>
+                        <div class="task-info">
+                            <div class="task-title">${this.escapeHtml(task.title)}</div>
+                            <div class="task-meta">
+                                <span class="task-tag tag-status-${task.status}">${statusLabels[task.status]}</span>
+                                <span class="task-tag tag-priority-${task.priority}">${task.priority === 'high' ? 'Tinggi' : task.priority === 'medium' ? 'Sedang' : 'Rendah'}</span>
+                                <span class="task-tag tag-category">${categoryLabels[task.category] || '📌'} ${task.category}</span>
+                                ${dateStr ? `<span class="task-tag ${isOverdue ? 'tag-overdue' : 'tag-date'}">${isOverdue ? '⚠️ ' : '📅 '}${dateStr}</span>` : ''}
+                            </div>
+                        </div>
+                        <div class="task-actions">
+                            <button class="btn-task" onclick="app.openEdit(${task.id})" title="Edit">✏️</button>
+                            <button class="btn-task btn-delete" onclick="app.deleteTask(${task.id})" title="Hapus">🗑️</button>
                         </div>
                     </div>
-                    <div class="task-actions">
-                        <button class="btn-task" onclick="app.openEdit(${task.id})" title="Edit">✏️</button>
-                        <button class="btn-task btn-delete" onclick="app.deleteTask(${task.id})" title="Hapus">🗑️</button>
-                    </div>
+                    ${subtasksHtml}
                 </li>
             `;
         }).join('');

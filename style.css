@@ -356,3 +356,38 @@ body {
     .header-actions { gap: 4px; }
     .btn-icon { width: 32px; height: 32px; font-size: 12px; }
 }
+
+/* ===== LIGHT MODE ===== */
+body.light-mode {
+    --bg-primary: #f4f7fb;
+    --bg-secondary: #ffffff;
+    --bg-card: rgba(255, 255, 255, 0.85);
+    --bg-card-hover: rgba(255, 255, 255, 1);
+    --bg-input: rgba(0, 0, 0, 0.05);
+    --text-primary: #0f172a;
+    --text-secondary: #334155;
+    --text-muted: #64748b;
+    --border: rgba(0, 0, 0, 0.1);
+    --accent: #4f46e5;
+    --accent-light: #6366f1;
+    --accent-glow: rgba(79, 70, 229, 0.2);
+    --shadow: 0 8px 32px rgba(0,0,0,0.06);
+}
+
+body.light-mode .bg-gradient {
+    background: linear-gradient(135deg, #f4f7fb 0%, #e2e8f0 40%, #cbd5e1 70%, #f4f7fb 100%);
+}
+
+body.light-mode .login-card, 
+body.light-mode .add-task-form, 
+body.light-mode .stat-card, 
+body.light-mode .task-item {
+    box-shadow: 0 4px 20px rgba(0,0,0,0.03);
+}
+
+body.light-mode .btn-task:hover { background: rgba(0,0,0,0.05); }
+body.light-mode .btn-task.btn-delete:hover { background: rgba(248,113,113,0.1); }
+body.light-mode .secondary-row select option, 
+body.light-mode .form-group select option { background: var(--bg-secondary); color: var(--text-primary); }
+body.light-mode .btn-icon:hover { background: rgba(0,0,0,0.05); color: var(--accent); }
+body.light-mode .task-item.progress .task-checkbox { color: #fff; }

@@ -45,6 +45,8 @@
                     <h1 class="app-title">Taskflow</h1>
                 </div>
                 <div class="header-actions">
+                    <button class="btn-icon" id="btn-theme" title="Toggle Theme">☀️</button>
+                    <button class="btn-icon" id="btn-users" title="Daftar User">👥</button>
                     <span class="user-badge" id="user-badge"></span>
                     <button class="btn-icon" id="btn-export" title="Export JSON">⬇️</button>
                     <button class="btn-icon" id="btn-import" title="Import JSON">⬆️</button>
@@ -84,7 +86,20 @@
                         <option value="other">📌 Lainnya</option>
                     </select>
                     <input type="date" id="task-date">
+                    <label style="display:flex; align-items:center; gap:6px; color:var(--text-muted); font-size:0.8rem; cursor:pointer;">
+                        <input type="checkbox" id="has-subtasks"> +Sub-task
+                    </label>
                     <button type="submit" class="btn-add" id="btn-add-task">+ Tambah</button>
+                </div>
+                <div id="subtasks-container" style="display: none; margin-top: 12px; background: var(--bg-input); padding: 12px; border-radius: var(--radius-sm); border: 1px dashed var(--border);">
+                    <p style="font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 8px;">Daftar Sub-task:</p>
+                    <div id="subtasks-list" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px;">
+                        <div class="subtask-input-wrapper" style="display: flex; gap: 8px;">
+                            <input type="text" class="subtask-input main-input" placeholder="Nama sub-task..." style="padding: 8px 12px; font-size: 0.85rem;">
+                            <button type="button" class="btn-icon btn-remove-subtask" onclick="this.parentElement.remove()" style="width: 34px; height: 34px; flex-shrink: 0; color: var(--danger);">&times;</button>
+                        </div>
+                    </div>
+                    <button type="button" id="btn-add-subtask" class="btn-secondary" style="font-size: 0.75rem; padding: 6px 12px;">+ Tambah Item</button>
                 </div>
             </form>
         </section>
@@ -144,8 +159,24 @@
                         </select></div>
                 </div>
                 <div class="form-group"><label for="edit-date">Tenggat</label><input type="date" id="edit-date"></div>
-                <div class="form-group"><label for="edit-notes">Catatan</label><textarea id="edit-notes" rows="3"
-                        placeholder="Catatan tambahan..."></textarea></div>
+                
+                <div class="form-group" style="display:flex; justify-content: space-between; align-items:center; margin-bottom: 8px;">
+                    <label style="margin-bottom:0;">Catatan / Sub-tasks</label>
+                    <label style="display:flex; align-items:center; gap:6px; color:var(--text-muted); font-size:0.8rem; cursor:pointer;">
+                        <input type="checkbox" id="edit-has-subtasks"> Mode Sub-task
+                    </label>
+                </div>
+
+                <div class="form-group" id="edit-notes-group">
+                    <textarea id="edit-notes" rows="3" placeholder="Catatan tambahan..."></textarea>
+                </div>
+                
+                <div class="form-group" id="edit-subtasks-group" style="display: none;">
+                    <div id="edit-subtasks-list" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; background: var(--bg-input); padding: 10px; border-radius: var(--radius-sm);">
+                        <!-- Edit subtasks will be injected here -->
+                    </div>
+                    <button type="button" id="btn-edit-add-subtask" class="btn-secondary" style="font-size: 0.75rem; padding: 6px 12px;">+ Tambah Item</button>
+                </div>
                 <div class="modal-actions"><button type="button" class="btn-secondary"
                         id="btn-cancel-edit">Batal</button><button type="submit" class="btn-primary"
                         id="btn-save-edit">Simpan</button></div>
@@ -169,6 +200,22 @@
                             placeholder="eyJhbGciOiJIUzI1NiIs..." required></div>
                     <div class="modal-actions"><button type="submit" class="btn-primary">💾 Simpan</button></div>
                 </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- USERS MODAL -->
+    <div class="modal-overlay" id="users-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2>👥 Daftar User</h2><button class="btn-modal-close" id="btn-users-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="loading-spinner" id="users-spinner" style="display:none; padding: 20px;">
+                    <div class="spinner"></div>
+                    <p>Memuat daftar user...</p>
+                </div>
+                <ul class="task-list" id="users-list" style="max-height: 400px; overflow-y: auto;"></ul>
             </div>
         </div>
     </div>
