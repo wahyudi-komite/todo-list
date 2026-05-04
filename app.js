@@ -324,17 +324,45 @@ class TaskflowApp {
                 .order('created_at', { ascending: false });
 
             if (error) throw error;
-            this.tasks = (data || []).map(row => ({
-                id: row.id,
-                title: row.title,
-                status: row.status || (row.completed ? 'completed' : 'active'),
-                priority: row.priority,
-                category: row.category,
-                dueDate: row.due_date,
-                notes: row.notes || '',
-                createdAt: row.created_at,
-                updatedAt: row.updated_at
-            }));
+            
+            const todayDate = new Date().toISOString().split('T')[0];
+            const updates = [];
+
+            this.tasks = (data || []).map(row => {
+                const parsed = this.parseNotes(row.notes);
+                let status = row.status || (row.completed ? 'completed' : 'active');
+                let notes = row.notes || '';
+
+                if (parsed.isDaily && status === 'completed') {
+                    const updatedDate = new Date(row.updated_at).toISOString().split('T')[0];
+                    if (updatedDate < todayDate) {
+                        status = 'active';
+                        if (parsed.subtasks.length > 0) {
+                            parsed.subtasks.forEach(s => s.completed = false);
+                        }
+                        notes = this.buildNotes(true, parsed.subtasks, parsed.text);
+                        updates.push({ id: row.id, status: 'active', completed: false, notes: notes, updated_at: new Date().toISOString() });
+                    }
+                }
+
+                return {
+                    id: row.id,
+                    title: row.title,
+                    status: status,
+                    priority: row.priority,
+                    category: row.category,
+                    dueDate: row.due_date,
+                    notes: notes,
+                    createdAt: row.created_at,
+                    updatedAt: row.updated_at
+                };
+            });
+
+            if (updates.length > 0) {
+                updates.forEach(async u => {
+                    await this.supabase.from('todos').update(u).eq('id', u.id);
+                });
+            }
         } catch (err) {
             console.error('Load error:', err);
             this.showToast('Gagal memuat data: ' + (err.message || 'Unknown error'), 'error');
@@ -350,13 +378,16 @@ class TaskflowApp {
         if (!title) return;
 
         let notesValue = '';
+        const isDailyToggle = document.getElementById('has-daily');
+        const isDaily = isDailyToggle ? isDailyToggle.checked : false;
         const hasSubtasksToggle = document.getElementById('has-subtasks');
+        
+        let subInputs = [];
         if (hasSubtasksToggle && hasSubtasksToggle.checked) {
-            const subInputs = Array.from(document.querySelectorAll('.subtask-input')).map(i => i.value.trim()).filter(v => v);
-            if (subInputs.length > 0) {
-                notesValue = JSON.stringify({ type: 'subtasks', items: subInputs.map(t => ({ title: t, completed: false })) });
-            }
+            subInputs = Array.from(document.querySelectorAll('.subtask-input')).map(i => i.value.trim()).filter(v => v);
         }
+        
+        notesValue = this.buildNotes(isDaily, subInputs.map(t => ({ title: t, completed: false })), '');
 
         const now = new Date().toISOString();
         const taskData = {
@@ -407,6 +438,8 @@ class TaskflowApp {
                         <button type="button" class="btn-icon btn-remove-subtask" onclick="this.parentElement.remove()" style="width: 34px; height: 34px; flex-shrink: 0; color: var(--danger);">&times;</button>
                     </div>`;
             }
+            const isDailyToggle = document.getElementById('has-daily');
+            if (isDailyToggle) isDailyToggle.checked = false;
             input.focus();
             this.showToast('Tugas berhasil ditambahkan!', 'success');
         } catch (err) {
@@ -442,9 +475,11 @@ class TaskflowApp {
         const task = this.tasks.find(t => t.id === taskId);
         if (!task) return;
         try {
-            const parsed = JSON.parse(task.notes);
-            parsed.items[subtaskIdx].completed = !parsed.items[subtaskIdx].completed;
-            const newNotes = JSON.stringify(parsed);
+            const parsed = this.parseNotes(task.notes);
+            if (parsed.subtasks[subtaskIdx]) {
+                parsed.subtasks[subtaskIdx].completed = !parsed.subtasks[subtaskIdx].completed;
+            }
+            const newNotes = this.buildNotes(parsed.isDaily, parsed.subtasks, parsed.text);
             
             const { error } = await this.supabase
                 .from('todos')
@@ -496,15 +531,9 @@ class TaskflowApp {
         document.getElementById('edit-category').value = task.category;
         document.getElementById('edit-date').value = task.dueDate || '';
         
-        let isSubtask = false;
-        let parsedItems = [];
-        try {
-            if (task.notes && task.notes.startsWith('{"type":"subtasks"')) {
-                const parsed = JSON.parse(task.notes);
-                isSubtask = true;
-                parsedItems = parsed.items;
-            }
-        } catch(e) {}
+        const parsed = this.parseNotes(task.notes);
+        let isSubtask = parsed.subtasks.length > 0;
+        let isDaily = parsed.isDaily;
 
         const toggle = document.getElementById('edit-has-subtasks');
         if (toggle) {
@@ -512,19 +541,22 @@ class TaskflowApp {
             document.getElementById('edit-notes-group').style.display = isSubtask ? 'none' : 'block';
             document.getElementById('edit-subtasks-group').style.display = isSubtask ? 'block' : 'none';
         }
+        
+        const dailyToggle = document.getElementById('edit-has-daily');
+        if (dailyToggle) dailyToggle.checked = isDaily;
 
         if (isSubtask) {
             const list = document.getElementById('edit-subtasks-list');
-            list.innerHTML = parsedItems.map(s => `
+            list.innerHTML = parsed.subtasks.map(s => `
                 <div class="subtask-input-wrapper" style="display: flex; gap: 8px; align-items: center;">
                     <input type="checkbox" class="edit-subtask-check" ${s.completed ? 'checked' : ''} style="cursor: pointer; width: 16px; height: 16px;">
                     <input type="text" class="edit-subtask-input main-input" value="${this.escapeHtml(s.title).replace(/"/g, '&quot;')}" style="padding: 6px 10px; font-size: 0.85rem;">
                     <button type="button" class="btn-icon btn-remove-subtask" onclick="this.parentElement.remove()" style="width: 30px; height: 30px; flex-shrink: 0; color: var(--danger);">&times;</button>
                 </div>
             `).join('');
-            document.getElementById('edit-notes').value = '';
+            document.getElementById('edit-notes').value = parsed.text || '';
         } else {
-            document.getElementById('edit-notes').value = task.notes || '';
+            document.getElementById('edit-notes').value = parsed.text || '';
             document.getElementById('edit-subtasks-list').innerHTML = `
                 <div class="subtask-input-wrapper" style="display: flex; gap: 8px; align-items: center;">
                     <input type="checkbox" class="edit-subtask-check" style="cursor: pointer; width: 16px; height: 16px;">
@@ -542,6 +574,10 @@ class TaskflowApp {
 
         let notesValue = '';
         const toggle = document.getElementById('edit-has-subtasks');
+        const dailyToggle = document.getElementById('edit-has-daily');
+        const isDaily = dailyToggle ? dailyToggle.checked : false;
+        const textNotes = document.getElementById('edit-notes').value.trim();
+
         if (toggle && toggle.checked) {
             const wrappers = document.querySelectorAll('#edit-subtasks-list .subtask-input-wrapper');
             const items = [];
@@ -550,11 +586,9 @@ class TaskflowApp {
                 const completed = w.querySelector('.edit-subtask-check').checked;
                 if (title) items.push({ title, completed });
             });
-            if (items.length > 0) {
-                notesValue = JSON.stringify({ type: 'subtasks', items });
-            }
+            notesValue = this.buildNotes(isDaily, items, textNotes);
         } else {
-            notesValue = document.getElementById('edit-notes').value.trim();
+            notesValue = this.buildNotes(isDaily, [], textNotes);
         }
 
         const updates = {
@@ -666,31 +700,31 @@ class TaskflowApp {
             const isOverdue = task.dueDate && task.status !== 'completed' && new Date(task.dueDate) < new Date();
             const dateStr = task.dueDate ? this.formatDate(task.dueDate) : '';
             
+            const parsed = this.parseNotes(task.notes);
+            const isDaily = parsed.isDaily;
             let subtasksHtml = '';
-            try {
-                if (task.notes && task.notes.startsWith('{"type":"subtasks"')) {
-                    const parsed = JSON.parse(task.notes);
-                    const subtasks = parsed.items;
-                    if (subtasks.length > 0) {
-                        const completedCount = subtasks.filter(s => s.completed).length;
-                        subtasksHtml = `
-                            <div class="subtasks-wrapper" style="margin-top: 12px; width: 100%; border-top: 1px dashed var(--border); padding-top: 10px;">
-                                <div class="subtasks-progress" style="font-size: 0.7rem; color: var(--text-muted); margin-bottom: 6px;">
-                                    Progress: ${completedCount}/${subtasks.length} Selesai
-                                </div>
-                                <ul style="list-style: none; padding-left: 0; margin: 0; display: flex; flex-direction: column; gap: 6px;">
-                                    ${subtasks.map((s, idx) => `
-                                        <li style="display: flex; align-items: center; gap: 8px;">
-                                            <input type="checkbox" ${s.completed ? 'checked' : ''} onclick="app.toggleSubtask(${task.id}, ${idx})" style="cursor: pointer; width: 16px; height: 16px; flex-shrink:0;">
-                                            <span style="font-size: 0.85rem; color: var(--text-secondary); ${s.completed ? 'text-decoration: line-through; opacity: 0.6;' : ''}">${this.escapeHtml(s.title)}</span>
-                                        </li>
-                                    `).join('')}
-                                </ul>
-                            </div>
-                        `;
-                    }
-                }
-            } catch(e) {}
+            
+            if (parsed.subtasks.length > 0) {
+                const subtasks = parsed.subtasks;
+                const completedCount = subtasks.filter(s => s.completed).length;
+                subtasksHtml = `
+                    <div class="subtasks-wrapper" style="margin-top: 12px; width: 100%; border-top: 1px dashed var(--border); padding-top: 10px;">
+                        <div class="subtasks-progress" style="font-size: 0.7rem; color: var(--text-muted); margin-bottom: 6px;">
+                            Progress: ${completedCount}/${subtasks.length} Selesai
+                        </div>
+                        <ul style="list-style: none; padding-left: 0; margin: 0; display: flex; flex-direction: column; gap: 6px;">
+                            ${subtasks.map((s, idx) => `
+                                <li style="display: flex; align-items: center; gap: 8px;">
+                                    <input type="checkbox" ${s.completed ? 'checked' : ''} onclick="app.toggleSubtask(${task.id}, ${idx})" style="cursor: pointer; width: 16px; height: 16px; flex-shrink:0;">
+                                    <span style="font-size: 0.85rem; color: var(--text-secondary); ${s.completed ? 'text-decoration: line-through; opacity: 0.6;' : ''}">${this.escapeHtml(s.title)}</span>
+                                </li>
+                            `).join('')}
+                        </ul>
+                    </div>
+                `;
+            }
+
+            const dailyBadge = isDaily ? `<span class="task-tag" style="background:rgba(6, 182, 212, 0.15); color:#06b6d4;">🔄 Daily</span>` : '';
 
             return `
                 <li class="task-item ${task.status}" data-id="${task.id}" style="flex-wrap: wrap;">
@@ -701,6 +735,7 @@ class TaskflowApp {
                         <div class="task-info">
                             <div class="task-title">${this.escapeHtml(task.title)}</div>
                             <div class="task-meta">
+                                ${dailyBadge}
                                 <span class="task-tag tag-status-${task.status}">${statusLabels[task.status]}</span>
                                 <span class="task-tag tag-priority-${task.priority}">${task.priority === 'high' ? 'Tinggi' : task.priority === 'medium' ? 'Sedang' : 'Rendah'}</span>
                                 <span class="task-tag tag-category">${categoryLabels[task.category] || '📌'} ${task.category}</span>
@@ -781,6 +816,34 @@ class TaskflowApp {
     }
 
     // ===== UTILS =====
+    parseNotes(notesStr) {
+        let isDaily = false;
+        let subtasks = [];
+        let text = notesStr || '';
+        let isJson = false;
+
+        if (notesStr && notesStr.startsWith('{')) {
+            try {
+                const parsed = JSON.parse(notesStr);
+                if (parsed.type === 'subtasks' || parsed.type === 'meta') {
+                    isJson = true;
+                    isDaily = !!parsed.isDaily;
+                    subtasks = parsed.items || parsed.subtasks || [];
+                    text = parsed.text || '';
+                }
+            } catch(e) {}
+        }
+        
+        return { isJson, isDaily, subtasks, text };
+    }
+
+    buildNotes(isDaily, subtasks, text) {
+        if (isDaily || subtasks.length > 0) {
+            return JSON.stringify({ type: 'meta', isDaily, subtasks, text });
+        }
+        return text;
+    }
+
     formatDate(dateStr) {
         const d = new Date(dateStr);
         const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];

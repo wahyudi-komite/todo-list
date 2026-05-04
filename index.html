@@ -86,20 +86,32 @@
                         <option value="other">📌 Lainnya</option>
                     </select>
                     <input type="date" id="task-date">
-                    <label style="display:flex; align-items:center; gap:6px; color:var(--text-muted); font-size:0.8rem; cursor:pointer;">
+                    <label
+                        style="display:flex; align-items:center; gap:6px; color:var(--text-muted); font-size:0.8rem; cursor:pointer;">
                         <input type="checkbox" id="has-subtasks"> +Sub-task
+                    </label>
+                    <label
+                        style="display:flex; align-items:center; gap:6px; color:var(--text-muted); font-size:0.8rem; cursor:pointer; margin-left: 4px;">
+                        <input type="checkbox" id="has-daily"> 🔄 Daily
                     </label>
                     <button type="submit" class="btn-add" id="btn-add-task">+ Tambah</button>
                 </div>
-                <div id="subtasks-container" style="display: none; margin-top: 12px; background: var(--bg-input); padding: 12px; border-radius: var(--radius-sm); border: 1px dashed var(--border);">
-                    <p style="font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 8px;">Daftar Sub-task:</p>
-                    <div id="subtasks-list" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px;">
+                <div id="subtasks-container"
+                    style="display: none; margin-top: 12px; background: var(--bg-input); padding: 12px; border-radius: var(--radius-sm); border: 1px dashed var(--border);">
+                    <p style="font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 8px;">Daftar Sub-task:
+                    </p>
+                    <div id="subtasks-list"
+                        style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px;">
                         <div class="subtask-input-wrapper" style="display: flex; gap: 8px;">
-                            <input type="text" class="subtask-input main-input" placeholder="Nama sub-task..." style="padding: 8px 12px; font-size: 0.85rem;">
-                            <button type="button" class="btn-icon btn-remove-subtask" onclick="this.parentElement.remove()" style="width: 34px; height: 34px; flex-shrink: 0; color: var(--danger);">&times;</button>
+                            <input type="text" class="subtask-input main-input" placeholder="Nama sub-task..."
+                                style="padding: 8px 12px; font-size: 0.85rem;">
+                            <button type="button" class="btn-icon btn-remove-subtask"
+                                onclick="this.parentElement.remove()"
+                                style="width: 34px; height: 34px; flex-shrink: 0; color: var(--danger);">&times;</button>
                         </div>
                     </div>
-                    <button type="button" id="btn-add-subtask" class="btn-secondary" style="font-size: 0.75rem; padding: 6px 12px;">+ Tambah Item</button>
+                    <button type="button" id="btn-add-subtask" class="btn-secondary"
+                        style="font-size: 0.75rem; padding: 6px 12px;">+ Tambah Item</button>
                 </div>
             </form>
         </section>
@@ -159,23 +171,33 @@
                         </select></div>
                 </div>
                 <div class="form-group"><label for="edit-date">Tenggat</label><input type="date" id="edit-date"></div>
-                
-                <div class="form-group" style="display:flex; justify-content: space-between; align-items:center; margin-bottom: 8px;">
+
+                <div class="form-group"
+                    style="display:flex; justify-content: space-between; align-items:center; margin-bottom: 8px;">
                     <label style="margin-bottom:0;">Catatan / Sub-tasks</label>
-                    <label style="display:flex; align-items:center; gap:6px; color:var(--text-muted); font-size:0.8rem; cursor:pointer;">
-                        <input type="checkbox" id="edit-has-subtasks"> Mode Sub-task
-                    </label>
+                    <div style="display: flex; gap: 12px;">
+                        <label
+                            style="display:flex; align-items:center; gap:6px; color:var(--text-muted); font-size:0.8rem; cursor:pointer;white-space: nowrap;">
+                            <input type="checkbox" id="edit-has-daily"> 🔄 Daily
+                        </label>
+                        <label
+                            style="display:flex; align-items:center; gap:6px; color:var(--text-muted); font-size:0.8rem; cursor:pointer;white-space: nowrap;">
+                            <input type="checkbox" id="edit-has-subtasks"> Mode Sub-task
+                        </label>
+                    </div>
                 </div>
 
                 <div class="form-group" id="edit-notes-group">
                     <textarea id="edit-notes" rows="3" placeholder="Catatan tambahan..."></textarea>
                 </div>
-                
+
                 <div class="form-group" id="edit-subtasks-group" style="display: none;">
-                    <div id="edit-subtasks-list" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; background: var(--bg-input); padding: 10px; border-radius: var(--radius-sm);">
+                    <div id="edit-subtasks-list"
+                        style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; background: var(--bg-input); padding: 10px; border-radius: var(--radius-sm);">
                         <!-- Edit subtasks will be injected here -->
                     </div>
-                    <button type="button" id="btn-edit-add-subtask" class="btn-secondary" style="font-size: 0.75rem; padding: 6px 12px;">+ Tambah Item</button>
+                    <button type="button" id="btn-edit-add-subtask" class="btn-secondary"
+                        style="font-size: 0.75rem; padding: 6px 12px;">+ Tambah Item</button>
                 </div>
                 <div class="modal-actions"><button type="button" class="btn-secondary"
                         id="btn-cancel-edit">Batal</button><button type="submit" class="btn-primary"
