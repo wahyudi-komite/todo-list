@@ -340,7 +340,7 @@ class TaskflowApp {
                         if (parsed.subtasks.length > 0) {
                             parsed.subtasks.forEach(s => s.completed = false);
                         }
-                        notes = this.buildNotes(true, parsed.subtasks, parsed.text);
+                        notes = this.buildNotes(true, parsed.subtasks, parsed.text, null);
                         updates.push({ id: row.id, status: 'active', completed: false, notes: notes, updated_at: new Date().toISOString() });
                     }
                 }
@@ -455,14 +455,24 @@ class TaskflowApp {
         const cycle = { active: 'progress', progress: 'completed', completed: 'active' };
         const newStatus = cycle[task.status] || 'active';
         const newCompleted = newStatus === 'completed';
+        
+        let newNotes = task.notes;
+        const parsed = this.parseNotes(task.notes);
+        if (newCompleted) {
+            newNotes = this.buildNotes(parsed.isDaily, parsed.subtasks, parsed.text, new Date().toISOString());
+        } else if (parsed.completedAt) {
+            newNotes = this.buildNotes(parsed.isDaily, parsed.subtasks, parsed.text, null);
+        }
+
         try {
             const { error } = await this.supabase
                 .from('todos')
-                .update({ status: newStatus, completed: newCompleted, updated_at: new Date().toISOString() })
+                .update({ status: newStatus, completed: newCompleted, notes: newNotes, updated_at: new Date().toISOString() })
                 .eq('id', id);
 
             if (error) throw error;
             task.status = newStatus;
+            task.notes = newNotes;
             task.updatedAt = new Date().toISOString();
             this.updateStats();
             this.renderTasks();
@@ -572,11 +582,21 @@ class TaskflowApp {
         const task = this.tasks.find(t => t.id === this.editingId);
         if (!task) return;
 
+        const parsed = this.parseNotes(task.notes);
         let notesValue = '';
         const toggle = document.getElementById('edit-has-subtasks');
         const dailyToggle = document.getElementById('edit-has-daily');
         const isDaily = dailyToggle ? dailyToggle.checked : false;
         const textNotes = document.getElementById('edit-notes').value.trim();
+        
+        const newStatus = document.getElementById('edit-status').value;
+        const newCompleted = newStatus === 'completed';
+        let completedAt = parsed.completedAt;
+        if (newCompleted && task.status !== 'completed') {
+            completedAt = new Date().toISOString();
+        } else if (!newCompleted) {
+            completedAt = null;
+        }
 
         if (toggle && toggle.checked) {
             const wrappers = document.querySelectorAll('#edit-subtasks-list .subtask-input-wrapper');
@@ -586,9 +606,9 @@ class TaskflowApp {
                 const completed = w.querySelector('.edit-subtask-check').checked;
                 if (title) items.push({ title, completed });
             });
-            notesValue = this.buildNotes(isDaily, items, textNotes);
+            notesValue = this.buildNotes(isDaily, items, textNotes, completedAt);
         } else {
-            notesValue = this.buildNotes(isDaily, [], textNotes);
+            notesValue = this.buildNotes(isDaily, [], textNotes, completedAt);
         }
 
         const updates = {
@@ -737,6 +757,7 @@ class TaskflowApp {
                             <div class="task-title">${this.escapeHtml(task.title)}</div>
                             <div class="task-meta">
                                 ${dailyBadge}
+                                ${task.status === 'completed' && parsed.completedAt ? `<span class="task-tag tag-status-completed" style="background:rgba(52,211,153,0.15); color:var(--success);">🏁 ${this.formatDate(parsed.completedAt)} ${new Date(parsed.completedAt).getHours().toString().padStart(2,'0')}:${new Date(parsed.completedAt).getMinutes().toString().padStart(2,'0')}</span>` : ''}
                                 <span class="task-tag tag-status-${task.status}">${statusLabels[task.status]}</span>
                                 <span class="task-tag tag-priority-${task.priority}">${task.priority === 'high' ? 'Tinggi' : task.priority === 'medium' ? 'Sedang' : 'Rendah'}</span>
                                 <span class="task-tag tag-category">${categoryLabels[task.category] || '📌'} ${task.category}</span>
@@ -872,6 +893,7 @@ class TaskflowApp {
         let subtasks = [];
         let text = notesStr || '';
         let isJson = false;
+        let completedAt = null;
 
         if (notesStr && notesStr.startsWith('{')) {
             try {
@@ -881,16 +903,17 @@ class TaskflowApp {
                     isDaily = !!parsed.isDaily;
                     subtasks = parsed.items || parsed.subtasks || [];
                     text = parsed.text || '';
+                    completedAt = parsed.completedAt || null;
                 }
             } catch(e) {}
         }
         
-        return { isJson, isDaily, subtasks, text };
+        return { isJson, isDaily, subtasks, text, completedAt };
     }
 
-    buildNotes(isDaily, subtasks, text) {
-        if (isDaily || subtasks.length > 0) {
-            return JSON.stringify({ type: 'meta', isDaily, subtasks, text });
+    buildNotes(isDaily, subtasks, text, completedAt = null) {
+        if (isDaily || subtasks.length > 0 || completedAt) {
+            return JSON.stringify({ type: 'meta', isDaily, subtasks, text, completedAt });
         }
         return text;
     }
