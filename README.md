@@ -36,6 +36,7 @@ CREATE TABLE todos (
     username TEXT NOT NULL,
     title TEXT NOT NULL,
     completed BOOLEAN DEFAULT FALSE,
+    status TEXT DEFAULT 'active',
     priority TEXT DEFAULT 'medium',
     category TEXT DEFAULT 'personal',
     due_date DATE,
@@ -43,6 +44,9 @@ CREATE TABLE todos (
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Jika tabel sudah ada tapi belum ada kolom status, jalankan ini:
+-- ALTER TABLE todos ADD COLUMN status TEXT DEFAULT 'active';
 
 -- Index untuk query berdasarkan username
 CREATE INDEX idx_todos_username ON todos(username);
