@@ -745,7 +745,7 @@ class TaskflowApp {
 
         empty.classList.remove('visible');
         const categoryLabels = {
-            personal: '👤', work: '💼', study: '📚',
+            personal: '👤', work: '💼', spadm: '🏢', study: '📚',
             health: '💪', finance: '💰', other: '📌'
         };
         const statusLabels = {
