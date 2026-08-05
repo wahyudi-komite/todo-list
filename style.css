@@ -62,7 +62,6 @@ body {
     position: absolute;
     border-radius: 50%;
     opacity: 0.25;
-    animation: float 20s ease-in-out infinite;
 }
 
 .orb-1 {
@@ -120,8 +119,6 @@ body {
     position: absolute;
     font-size: 2rem;
     opacity: 0.12;
-    filter: grayscale(0.2);
-    animation: floatIcon 12s ease-in-out infinite;
 }
 
 .icon-1 { top: 15%; left: 10%; animation-delay: 0s; font-size: 3rem; }
